@@ -140,10 +140,14 @@ while True:
                             hora = time.strftime("%H:%M:%S"),
                             fecha = time.strftime("%Y/%m/%d"))
         connection.execute(aux)
+        #Si la configuracion esta con CCM y tiene conexion Online con la CCM
         if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+            #Selecciona los datos de la tabla temporal de la ECM
             query_temporal_select = select([temporal])
             resp_query_temporal_select = connection.execute(query_temporal_select).fetchall()
+            #Si exiten datos en la tabla
             if (len(resp_query_temporal_select) > 0):
+                #Recorre todas las filas de la tabla tempral
                 for valor in resp_query_temporal_select:
                     aux_temporal = todo.insert().values(temperatura = valor.temperatura,
                                                     humedad = valor.humedad,
@@ -153,10 +157,13 @@ while True:
                                                     canal4 = valor.canal4,
                                                     tempGabinete = datos_actuales.tempGabinete,
                                                     hora = valor.hora,
-                                                    fecha = valor.fecha)                
+                                                    fecha = valor.fecha) 
+                    #Inserta todas las filas de la tabla temporal de la ECM en la tabla todo de la CCM               
                     connection2.execute(aux_temporal)
+                #Elimina todos los valores de la tabla temporal despues e guardarlas en la CCM
                 connection.execute(sa_text('''TRUNCATE TABLE temporal''').execution_options(autocommit=True))
             connection2.execute(aux)
+        #Si no hay conexion con la CCM inserta los valores en la tabla temporal de la ECM
         if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'sin conexion'):
             aux = temporal.insert().values(temperatura = datos_actuales.temperatura,
                             humedad = datos_actuales.humedad,
@@ -180,6 +187,10 @@ while True:
             connection.execute(query_alarmas_update)
             query_alarmas_update1 = update(alarmas).where(alarmas.c.id==3).values(estado = 'inactivo')
             connection.execute(query_alarmas_update1)
+            #Verfiicacion si la CCM esta activa y la configuracion de la CCM esta con CCM
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                #Envia los datos hacia la CCM
+                connection2.execute(query_alarmas_update1)
         #Si el rango de Potencia supera el umbral cambia el valor de estado a activo
         if (rango_potencia == 1):
             query_alarmas_update3 = update(alarmas).where(alarmas.c.id==2).values(
@@ -187,6 +198,8 @@ while True:
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
             connection.execute(query_alarmas_update3)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection2.execute(query_alarmas_update3)
         #Si el rango de potencia es inferior cambia de estado activo
         if (rango_potencia == -1):
             query_alarmas_update4 = update(alarmas).where(alarmas.c.id==3).values(
@@ -194,6 +207,8 @@ while True:
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
             connection.execute(query_alarmas_update4)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection2.execute(query_alarmas_update4)
 
         #Si conexion a la SMR falla
         if (resultado_query_estado_conexion_select.estado == 'sin conexion'):
@@ -202,11 +217,15 @@ while True:
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
             connection.execute(query_update_alarma_SMR)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection2.execute(query_update_alarma_SMR)
 
         #Si la conexion SMR esta Online
         if (resultado_query_estado_conexion_select.estado == 'con conexion'):
             query_update_alarma_SMR = update(alarmas).where(alarmas.c.id==7).values(estado = 'inactivo')
             connection.execute(query_update_alarma_SMR)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection2.execute(query_update_alarma_SMR)
 
         #Si la conexion hacia la CCM falla
         if (resultado_query_estado_conexion_select.CCM == 'sin conexion' and resultado.checkbox == "con CCM"):
@@ -214,14 +233,15 @@ while True:
                                                                                     estado = 'activo',
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
-            connection.execute(query_update_alarma_CCM)  
+            connection.execute(query_update_alarma_CCM)
 
         #Si la conexion con el CCM se mantiene   
         if (resultado_query_estado_conexion_select.CCM == 'con conexion' and resultado.checkbox == "con CCM"):
             query_update_alarma_CCM = update(alarmas).where(alarmas.c.id==8).values(estado = 'inactivo')
-            connection.execute(query_update_alarma_CCM)      
+            connection.execute(query_update_alarma_CCM)
+            connection2.execute(query_update_alarma_CCM)      
         
-        #Si la conexion a la CCM esta Online
+        #Actualiza la tabla ahora de la CCM cada 5 segundos
         if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
             aux_ahora = update(ahora).where(ahora.c.id==1).values(
                                 temperatura = datos_actuales.temperatura,
@@ -241,6 +261,8 @@ while True:
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
             connection.execute(query_update_alarma_DHT)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection2.execute(query_update_alarma_DHT)                
         else:
             query_update_alarma_DHT = update(alarmas).where(alarmas.c.id==1).values(
                                                                                     estado = 'inactivo',
@@ -255,19 +277,26 @@ while True:
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
             connection.execute(query_update_alarma_tempmax)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection.execute(query_update_alarma_tempmax)
 
         if (datos_actuales.tempGabinete <= confi_actual.tempmin):
             query_update_alarma_tempmin = update(alarmas).where(alarmas.c.id==6).values(
                                                                                     estado = 'activo',
                                                                                     hora_inicial = time.strftime("%H:%M:%S"),
                                                                                     fec_inicial = time.strftime("%Y-%m-%d"))
-            connection.execute(query_update_alarma_tempmin) 
+            connection.execute(query_update_alarma_tempmin)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection.execute(query_update_alarma_tempmin)
 
         if (datos_actuales.tempGabinete > confi_actual.tempmin and datos_actuales.tempGabinete < confi_actual.tempmax):
             query_update_alarma_aux = update(alarmas).where(alarmas.c.id==5).values(estado = 'inactivo',)
             connection.execute(query_update_alarma_aux)
             query_update_alarma_aux = update(alarmas).where(alarmas.c.id==6).values(estado = 'inactivo',)
-            connection.execute(query_update_alarma_aux)    
+            connection.execute(query_update_alarma_aux)
+            if (resultado.checkbox == "con CCM" and resultado_query_estado_conexion_select.CCM == 'con conexion'):
+                connection.execute(query_update_alarma_aux)
+                connection.execute(query_update_alarma_aux)
 
         time.sleep(0.4)
     connection.close()
