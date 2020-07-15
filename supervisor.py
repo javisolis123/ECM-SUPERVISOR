@@ -95,7 +95,7 @@ temporal = Table('temporal', metadata,
 
 while True:
     #Se crea un objeto con la conexion a la base de datos de MariaDB
-    engine = create_engine('mysql+pymysql://javi:javiersolis12@10.0.0.20/Tuti')
+    engine = create_engine('mysql+pymysql://javi:javiersolis12@192.168.10.20/Tuti')
     connection = engine.connect()
     #Seleccionamos los datos de la tabla configurar
     query_init = select([configuracion])
